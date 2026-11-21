@@ -1,0 +1,43 @@
+OpenCode Android host 0.2.1 (OuseCode project)
+
+Standalone Android host for OpenCode, with a bundled PRoot Ubuntu environment.
+
+OuseCode application source: GNU AGPL-3.0; see LICENSE in the source project.
+TarExtractor.kt is adapted from ccch1mneyyy/dsh-Go (AGPL-3.0), with its package renamed.
+Upstream source: https://github.com/ccch1mneyyy/dsh-Go
+
+OpenCode: Anomaly contributors, MIT.
+https://github.com/anomalyco/opencode
+Official binary: https://opencode.ai/
+Launcher artwork: official OpenCode logo, dark variant, adapted to Android vector/adaptive-icon resources.
+Source: https://opencode.ai/brand/files/opencode-logo-dark.svg
+OpenCode and its logo are trademarks of Anomaly. OuseCode is an independent project.
+
+Termux terminal-emulator and terminal-view: termux/termux-app v0.118.3.
+GPL-3.0-only with Apache-2.0 portions inherited from Android Terminal Emulator.
+Sources: https://github.com/termux/termux-app/tree/v0.118.3
+Local changes: TerminalSession supports PTYs owned by the Shizuku process.
+Vendored source and build notes: third_party/termux; license texts: assets/licenses/termux-*.
+
+Shizuku API and provider 13.1.5: Copyright (c) 2021 RikkaW, MIT.
+https://github.com/RikkaApps/Shizuku-API
+Full license: assets/licenses/shizuku-MIT.txt.
+
+Ubuntu Base 24.04.5: Canonical and the individual package authors.
+Individual package copyright and license files remain inside Ubuntu at /usr/share/doc/*/copyright.
+https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/
+
+Node.js: Node.js contributors, MIT and bundled third-party licenses.
+The Node distribution retains its LICENSE under /opt/node/LICENSE.
+https://nodejs.org/
+
+PRoot: GPL-2.0; Termux-patched binaries and dependencies as recorded in runtime-inputs.json.
+https://github.com/termux/proot
+Talloc: LGPL-3.0-or-later.
+Android shared memory library: https://github.com/termux/libandroid-shmem
+Their license notices are included under assets/licenses.
+
+XZ for Java: Lasse Collin and contributors, 0BSD.
+https://tukaani.org/xz/java.html
+
+OuseCode is an independent application, not an official OpenCode, Ubuntu, or Termux product.

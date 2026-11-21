@@ -1,0 +1,12 @@
+.gradle/
+.cache/
+build/
+app/build/
+app/src/main/assets/runtime/
+app/src/main/jniLibs/
+local.properties
+*.jks
+*.keystore
+captures/
+__pycache__/
+dist/

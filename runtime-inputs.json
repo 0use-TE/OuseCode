@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "runtimeVersion": "ubuntu-24.04.5-node24.22.1-r1",
+  "ubuntuVersion": "24.04.5",
+  "nodeVersion": "24.22.1",
+  "opencodeVersion": "2.3.2",
+  "ubuntu": {
+    "file": "ubuntu-arm64.tar.xz",
+    "sha256": "98a9be6af7877a2f9b75c87a22c3681a38ea6a48803a66be0317508a581451e1",
+    "bytes": 67490804,
+    "source": "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz",
+    "baseSha256": "a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2"
+  },
+  "engine": {
+    "file": "opencode-linux-arm64.tar.gz",
+    "sha256": "9d10185acdb72336e086e699ca363a6065f410fd3c1caed0dc8046e95ac06ccb",
+    "bytes": 121172970,
+    "source": "https://opencode.ai/update/api/latest/cli/opencode/opencode-linux-arm64.tar.gz"
+  },
+  "libraries": {
+    "libproot.so": {
+      "sha256": "aad737c5b546ee7471f133be90ef20f765aa98a303522557ceed3dff76605085",
+      "source": "termux-main proot 5.1.107.102 (proot_5.1.107.102_aarch64.deb:/data/data/com.termux/files/usr/bin/proot)"
+    },
+    "libproot-loader.so": {
+      "sha256": "1da54355333cca3fb6ee10e3b82a24df24fb230c99241ce83809bf9e240609b5",
+      "source": "termux-main proot 5.1.107.102 (proot_5.1.107.102_aarch64.deb:/data/data/com.termux/files/usr/libexec/proot/loader)"
+    },
+    "libtalloc.so": {
+      "sha256": "160d39bc0d7ed946f22310d1d6f20addda21b02b0972dffe929fe49951543941",
+      "source": "termux-main libtalloc 2.5.0 (libtalloc_2.5.0_aarch64.deb:/data/data/com.termux/files/usr/lib/libtalloc.so.2.5.0)"
+    },
+    "libandroid-shmem.so": {
+      "sha256": "84475798e07c8174dbbfaec70a827fdb02f19ffa69a589380c13e7507fd0e731",
+      "source": "termux-main libandroid-shmem 0.7 (libandroid-shmem_0.7_aarch64.deb:/data/data/com.termux/files/usr/lib/libandroid-shmem.so)"
+    }
+  }
+}
