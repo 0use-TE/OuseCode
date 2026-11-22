@@ -7,5 +7,5 @@ rsync -rt --exclude=.cache --exclude=.gradle --exclude=build --exclude=app/build
 cd "$build_dir"
 bash tools/build.sh
 mkdir -p "$source_dir/dist"
-cp dist/OpenCode-0.2.4-arm64.apk "$source_dir/dist/"
+cp dist/OpenCode-0.2.5-arm64.apk "$source_dir/dist/"
 cp runtime-inputs.json ubuntu-packages.lock.json "$source_dir/"

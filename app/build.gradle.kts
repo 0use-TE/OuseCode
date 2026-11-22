@@ -9,8 +9,8 @@ android {
         // PRoot guests execute Linux programs from app-private storage, as in Termux.
         // This first release is distributed as a sideloadable APK, not through Play.
         targetSdk = 28
-        versionCode = 10
-        versionName = "0.2.4"
+        versionCode = 11
+        versionName = "0.2.5"
         ndk { abiFilters += "arm64-v8a" }
         testInstrumentationRunner = "io.github.ouse.ousecode.SmokeInstrumentation"
     }

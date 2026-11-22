@@ -138,6 +138,7 @@ class MainActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         web.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
+                if (localOrigin(Uri.parse(url))) (view as OpenCodeWebView).installInputCompatibility()
                 syncPageTheme {}
                 if (manager.status.phase == Phase.READY && localOrigin(Uri.parse(url)) && !Uri.parse(url).path.orEmpty().startsWith("/auth/")) {
                     view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {

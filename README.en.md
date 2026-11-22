@@ -10,13 +10,15 @@ The first launch extracts the environment; later launches reuse it. Model reques
 
 ## Usage
 
-1. Install `dist/OpenCode-0.2.4-arm64.apk`, open OpenCode, and wait for initial extraction. The app automatically pairs with its bundled server using OpenCode's official one-time flow; no server address needs to be entered.
+1. Install `dist/OpenCode-0.2.5-arm64.apk`, open OpenCode, and wait for initial extraction. The app automatically pairs with its bundled server using OpenCode's official one-time flow; no server address needs to be entered.
 2. Select a project and configure a model in OpenCode. The default workspace is `/root/workspace`.
 3. OpenCode fills the app content area. Tap the edge handle to reveal settings, then tap again to open the panel. Drag the handle to either edge; its position is retained, and the button collapses after 3 idle seconds. Physical keyboards can use `Ctrl+Alt+O` for settings and `Ctrl+Shift+R` to reload.
 4. Settings has Terminal, Android access, Runtime, and About pages. Terminal opens Ubuntu and edits its display name; Runtime provides reload, restart, OpenCode update, logs, and stop. The display name changes only the Bash prompt (default `ouse@OpenCode`), keeping root and `/root` unchanged. New terminals pick it up automatically; run `source ~/.bashrc` in an existing terminal. Names accept 1–40 letters, numbers, spaces, and `_ . @ -`. Existing prompt configuration lines are preserved; `.bashrc` sources the separate `.ousecode/prompt.bash` file.
 5. An Android foreground service manages the runtime when the screen is closed. Returning from the launcher or notification reuses the existing page and preserves its state without replaying startup. Stopping it ends active tasks while retaining projects and sessions.
 
 The host converts classified two-finger trackpad pans to wheel input for conversations, model lists, and other web scroll areas. Ordinary touchscreen input is unchanged. Trackpad hover is normalized as mouse input so cursor shapes can switch between dividers and content.
+
+The host sets `touch-action: none` on OpenCode dividers so browser panning cannot cancel touch resizing. Release, window focus loss, and mouse movement with no buttons pressed clear the observed resize and pointer capture. Starting composition with a physical keyboard requests that the IME restore its candidate UI; the IME controls the final presentation.
 
 `Ctrl+Alt+T` toggles the temporary Ubuntu terminal from the OpenCode webpage or the terminal itself. Settings also opens it. This is interactive Bash inside PRoot, starting in `/root/workspace` and sharing project files with OpenCode, rather than an Android shell. It supports physical keyboards, IME, Tab completion, arrow-key history, Ctrl+C, and long-press copy/paste (`Ctrl+Shift+V` to paste). Hiding retains the working directory and jobs; × or `exit` ends the session. Restarting/stopping the environment ends it too. OpenCode's own shortcuts, including Ctrl+backtick, remain unchanged. Termux terminal components are bundled in the APK; no Termux app installation is needed.
 
@@ -100,6 +102,8 @@ The separate `device-tests` APK targets SDK 36. After authorizing Shizuku, add `
 Version 0.2.3 passed the basic, settings UI, Ubuntu terminal, and Android access checks on a Lenovo TB378FC running Android 15 ARM64. Shizuku used UID 2000. Extended in-app update and DNS/HTTPS checks passed on the earlier build and were not repeated for this change. APK builds, bundled asset/native-library hash checks, and Android lint passed.
 
 Subscription sign-in, third-party plugins, and extended background operation require separate device verification and are not established by the smoke checks.
+
+Version 0.2.5 passed real-device checks for returning to the same page, two-finger scrolling, cursor restoration, continuous touch resizing, missing-release/window-blur cleanup, and Chinese composition/commit through classic and modern input connections. Builds and asset hashes passed, with no lint errors. Actual candidate-window presentation and trackpad feel remain for user verification; simulated composition does not validate Gboard's candidate UI.
 
 ## License and attribution
 

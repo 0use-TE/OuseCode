@@ -9,6 +9,10 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.PointerIcon
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -59,17 +63,35 @@ class InputChecks(private val instrumentation: Instrumentation, private val acti
         main {
             web = OpenCodeWebView(activity)
             web.settings.javaScriptEnabled = true
+            web.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) { web.installInputCompatibility() }
+            }
             parent.addView(web, ViewGroup.LayoutParams(-1, -1))
             web.requestFocus()
             web.loadDataWithBaseURL("https://input-check.invalid/", """
                 <!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
                 <style>body{margin:0;background:#171717}#list,#menu{position:absolute;top:30px;width:300px;height:300px;overflow:auto;cursor:default}#list{left:20px}#menu{left:400px}#handle{position:absolute;left:350px;top:0;width:20px;height:400px;cursor:col-resize}.content{height:2000px}</style>
-                <div id="list"><div class="content">List</div></div><div id="handle"></div><div id="menu"><div class="content">Menu</div></div>
-                <script>window.inputResults={mouse:0,touch:0,wheel:0};addEventListener('pointermove',e=>{inputResults[e.pointerType]++});addEventListener('wheel',()=>inputResults.wheel++);window.inputReady=true;</script>
+                <div id="list"><div class="content">List</div></div><div id="handle" data-component="resize-handle"></div><div id="menu"><div class="content">Menu</div></div>
+                <div id="editor" contenteditable="true" style="position:absolute;top:450px;left:20px;width:500px;height:60px;color:white"></div>
+                <script>
+                  window.inputResults={mouse:0,touch:0,wheel:0,resizes:0,cancels:0};
+                  addEventListener('pointermove',e=>{inputResults[e.pointerType]++});
+                  addEventListener('wheel',()=>inputResults.wheel++);
+                  let drag;
+                  handle.addEventListener('pointerdown',e=>{
+                    drag=e.pointerId;if(e.isTrusted)handle.setPointerCapture(drag);handle.setAttribute('data-dragging','');
+                    document.body.style.cursor='col-resize';document.body.style.userSelect='none';document.body.style.overflow='hidden';
+                  });
+                  addEventListener('pointermove',e=>{if(e.pointerId===drag){inputResults.resizes++;inputResults.lastResize=e.clientX}});
+                  const end=e=>{if(e.pointerId!==drag)return;if(e.type==='pointercancel')inputResults.cancels++;drag=undefined;handle.removeAttribute('data-dragging');document.body.style.cursor='';document.body.style.userSelect='';document.body.style.overflow=''};
+                  addEventListener('pointerup',end);addEventListener('pointercancel',end);
+                  window.inputReady=true;
+                </script>
             """.trimIndent(), "text/html", "utf-8", null)
         }
         try {
             await("Input test page did not load") { evaluate("window.inputReady") == "true" }
+            await("Host input compatibility did not load") { evaluate("window.__openCodeHostInput") == "true" }
             val scale = web.width.toFloat() / evaluate("innerWidth").toFloat()
             if (Build.VERSION.SDK_INT >= 34) {
                 pan(100 * scale, 250 * scale, MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE)
@@ -97,7 +119,54 @@ class InputChecks(private val instrumentation: Instrumentation, private val acti
                 hover(100f, PointerIcon.TYPE_ARROW)
             }
             check(evaluate("inputResults.mouse").toInt() >= 6) { "Trackpad hover did not reach the page as mouse input" }
-            instrumentation.sendStatus(0, Bundle().apply { putString("stream", "PASS: two-finger list/menu scrolling, cancellation, ordinary touch, and native divider cursor restoration\n") })
+
+            for (step in 0..10) {
+                main {
+                    val action = when (step) { 0 -> MotionEvent.ACTION_DOWN; 10 -> MotionEvent.ACTION_UP; else -> MotionEvent.ACTION_MOVE }
+                    val touch = event(action, (355 + step * 10) * scale, (110 + step * 4) * scale, InputDevice.SOURCE_TOUCHSCREEN, MotionEvent.TOOL_TYPE_FINGER)
+                    try { web.dispatchTouchEvent(touch) } finally { touch.recycle() }
+                }
+                Thread.sleep(35)
+            }
+            await("Touch resize did not follow the full drag") { evaluate("inputResults.lastResize").toFloat() >= 440 }
+            check(evaluate("inputResults.cancels").toInt() == 0) { "Browser cancelled touch resize to pan" }
+            await("Touch release left resize styles locked") { evaluate("document.body.style.cursor") == "\"\"" }
+
+            // Reproduce a mouse-up lost during a window transition, then a hover
+            // elsewhere. The shim must clear both pointer capture and body lock.
+            evaluate("handle.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:77,pointerType:'mouse',button:0,buttons:1}));window.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:77,pointerType:'mouse',buttons:0}));true")
+            check(evaluate("document.body.style.cursor") == "\"\"")
+            check(evaluate("handle.hasAttribute('data-dragging')") == "false")
+            evaluate("handle.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerId:78,pointerType:'mouse',button:0,buttons:1}));window.dispatchEvent(new Event('blur'));true")
+            check(evaluate("document.body.style.cursor") == "\"\"")
+            check(evaluate("document.body.style.userSelect") == "\"\"")
+            check(evaluate("document.body.style.overflow") == "\"\"")
+            hover(100f, PointerIcon.TYPE_ARROW)
+
+            evaluate("editor.focus();true")
+            lateinit var connection: InputConnection
+            await("Web editor did not create a text input connection") {
+                var ready = false
+                main {
+                    val info = EditorInfo()
+                    val found = web.onCreateInputConnection(info)
+                    ready = found != null && info.inputType and android.text.InputType.TYPE_MASK_CLASS == android.text.InputType.TYPE_CLASS_TEXT
+                    if (ready) connection = found!!
+                }
+                ready
+            }
+            check(connection.setComposingText("ni", 1))
+            await("Composition was not forwarded to the web editor") { evaluate("editor.textContent") == "\"ni\"" }
+            check(connection.commitText("你", 1))
+            await("Chinese commit was not forwarded") { evaluate("editor.textContent") == "\"你\"" }
+            if (Build.VERSION.SDK_INT >= 33) {
+                check(connection.setComposingText("hao", 1, null))
+                check(connection.commitText("好", 1, null))
+                await("Modern IME composition/commit was not forwarded") { evaluate("editor.textContent") == "\"你好\"" }
+            }
+            check(connection.finishComposingText())
+            main { activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0) }
+            instrumentation.sendStatus(0, Bundle().apply { putString("stream", "PASS: two-finger scrolling, cursor restoration, continuous touch resize, lost-release/blur cleanup and classic/modern Chinese input connections\n") })
         } finally {
             main { parent.removeView(web); web.destroy() }
         }
