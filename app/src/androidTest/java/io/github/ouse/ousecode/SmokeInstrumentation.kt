@@ -23,14 +23,15 @@ class SmokeInstrumentation : Instrumentation() {
     private var androidChecksEnabled = false
     private var inspect = false
     private var host = false
+    private var bootOnly = false
     private var approvals = false
     private var testedActivity: Activity? = null
-    override fun onCreate(arguments: Bundle?) { extended = arguments?.getString("extended") == "true"; ui = arguments?.getString("ui") == "true"; terminal = arguments?.getString("terminal") == "true"; androidChecksEnabled = arguments?.getString("android") == "true"; inspect = arguments?.getString("inspect") == "true"; host = arguments?.getString("host") == "true"; approvals = arguments?.getString("approvals") == "true"; super.onCreate(arguments); start() }
+    override fun onCreate(arguments: Bundle?) { extended = arguments?.getString("extended") == "true"; ui = arguments?.getString("ui") == "true"; terminal = arguments?.getString("terminal") == "true"; androidChecksEnabled = arguments?.getString("android") == "true"; inspect = arguments?.getString("inspect") == "true"; host = arguments?.getString("host") == "true"; bootOnly = arguments?.getString("boot") == "true"; approvals = arguments?.getString("approvals") == "true"; super.onCreate(arguments); start() }
     override fun onStart() {
         val result = Bundle()
         try {
             if (inspect) { inspectInput(); finish(Activity.RESULT_OK, result); return }
-            if (host) { HostChecks(this).run(); finish(Activity.RESULT_OK, result); return }
+            if (host || bootOnly) { HostChecks(this, bootOnly).run(); finish(Activity.RESULT_OK, result); return }
             if (approvals) { ApprovalChecks(this).run(); finish(Activity.RESULT_OK, result); return }
             val context = targetContext
             check(context.applicationInfo.loadLabel(context.packageManager).toString() == "OpenCode") { "Application display name was not updated" }

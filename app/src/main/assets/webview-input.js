@@ -8,6 +8,25 @@
   style.textContent = '[data-component="resize-handle"] { touch-action: none; }';
   document.head.appendChild(style);
 
+  // Trackpad pinches can arrive as Ctrl+wheel instead of native pinch events.
+  window.addEventListener("wheel", event => {
+    if (event.ctrlKey) event.preventDefault();
+  }, { capture: true, passive: false });
+
+  let pressedTarget;
+  window.addEventListener("pointerdown", event => { pressedTarget = event.target; }, true);
+  window.addEventListener("click", event => {
+    // Touch menu actions run on pointerup. If the menu is replaced by a dialog,
+    // Android can retarget the following compatibility click to its new overlay.
+    // A real backdrop dismissal must begin on that same backdrop.
+    const overlay = event.target.closest?.('[data-component="dialog-overlay"]');
+    if (event.detail > 0 && overlay && !overlay.contains(pressedTarget)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    pressedTarget = undefined;
+  }, true);
+
   let resize;
   const finish = (session, cancel) => {
     if (resize !== session) return;

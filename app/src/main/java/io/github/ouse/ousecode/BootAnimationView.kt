@@ -1,5 +1,7 @@
 package io.github.ouse.ousecode
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,8 +12,11 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.os.SystemClock
 import android.provider.Settings
+import android.view.Choreographer
+import android.os.Build
 import android.view.View
 import kotlin.math.min
+import kotlin.math.abs
 import kotlin.random.Random
 
 /** Offline startup visual. The bar uses runtime progress; only the rain is animated. */
@@ -32,7 +37,25 @@ class BootAnimationView(context: Context) : View(context) {
     private var finished = false
     private var reducedMotion = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
-    init { setBackgroundColor(Color.BLACK); importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES; isClickable = true }
+    private val signalFrame = if (Build.VERSION.SDK_INT >= 29) BootSignalFrame() else null
+    private var exitProgress = -1f
+    private var exitFrameTime = 0L
+    private var exitCompletion: (() -> Unit)? = null
+    private val exitTick = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            if (exitCompletion == null || !isShown || windowVisibility != VISIBLE) { exitFrameTime = 0; return }
+            // A busy startup frame must not consume the whole visible transition.
+            if (exitFrameTime != 0L) exitProgress += min(frameTimeNanos - exitFrameTime, 33_333_333L) / 950_000_000f
+            exitFrameTime = frameTimeNanos
+            invalidate()
+            if (exitProgress >= 1f) {
+                val done = exitCompletion
+                exitCompletion = null; signalFrame?.release(); done?.invoke()
+            } else Choreographer.getInstance().postFrameCallback(this)
+        }
+    }
+
+    init { if (signalFrame == null) setLayerType(LAYER_TYPE_HARDWARE, null); importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES; isClickable = true }
 
     fun setBootProgress(value: Int, message: String) {
         percent = value.coerceIn(-1, 100); stage = message
@@ -42,9 +65,52 @@ class BootAnimationView(context: Context) : View(context) {
     }
 
     fun finishBoot() { finished = true; percent = 100; invalidate() }
-    fun resetBoot() { finished = false; percent = -1; decoded = 0f; logs.clear(); invalidate() }
-    fun pauseAnimation() { running = false }
-    fun resumeAnimation() { running = true; lastFrame = SystemClock.uptimeMillis(); invalidate() }
+    fun resetBoot() { cancelExit(); if (signalFrame == null) setLayerType(LAYER_TYPE_HARDWARE, null); finished = false; percent = -1; decoded = 0f; logs.clear(); invalidate() }
+    fun pauseAnimation() { running = false; Choreographer.getInstance().removeFrameCallback(exitTick); exitFrameTime = 0 }
+    fun resumeAnimation() {
+        running = !finished; lastFrame = SystemClock.uptimeMillis()
+        if (exitCompletion != null) { Choreographer.getInstance().removeFrameCallback(exitTick); Choreographer.getInstance().postFrameCallback(exitTick) }
+        invalidate()
+    }
+
+    /** Tear the GPU-resident rain into strips; no screenshot or bitmap allocation. */
+    fun playExit(done: () -> Unit) {
+        cancelExit(); pauseAnimation()
+        if (Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f) {
+            signalFrame?.release(); done(); setLayerType(LAYER_TYPE_NONE, null); return
+        }
+        if (signalFrame != null) {
+            exitProgress = 0f; exitCompletion = done
+            Choreographer.getInstance().postFrameCallback(exitTick)
+            invalidate(); return
+        }
+        // Android 8/9 do not expose RenderNode; keep a simple native fade there.
+        animate().alpha(0f).setStartDelay(0).setDuration(950)
+            .setInterpolator(android.view.animation.LinearInterpolator())
+            .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    animate().setListener(null)
+                    done()
+                    setLayerType(LAYER_TYPE_NONE, null)
+                }
+            }).start()
+    }
+
+    fun cancelExit() {
+        Choreographer.getInstance().removeFrameCallback(exitTick)
+        exitCompletion = null; exitProgress = -1f; exitFrameTime = 0L
+        animate().setListener(null); animate().cancel(); alpha = 1f
+    }
+
+    override fun onDetachedFromWindow() {
+        cancelExit(); pauseAnimation(); signalFrame?.release(); setLayerType(LAYER_TYPE_NONE, null)
+        super.onDetachedFromWindow()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == GONE) signalFrame?.release()
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         columns.clear()
@@ -61,21 +127,64 @@ class BootAnimationView(context: Context) : View(context) {
         super.onWindowVisibilityChanged(visibility)
         if (visibility == VISIBLE) {
             reducedMotion = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-            lastFrame = SystemClock.uptimeMillis(); invalidate()
+            lastFrame = SystemClock.uptimeMillis()
+            if (exitCompletion != null) { Choreographer.getInstance().removeFrameCallback(exitTick); Choreographer.getInstance().postFrameCallback(exitTick) }
+            invalidate()
         }
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val frame = signalFrame
+        if (frame != null && canvas.isHardwareAccelerated) {
+            if (exitProgress <= 0f || !frame.ready) frame.record(width, height, ::drawScene)
+            if (exitProgress >= 0f) drawSignal(canvas, frame) else frame.draw(canvas, width, height)
+        } else drawScene(canvas)
+    }
+
+    private fun drawSignal(canvas: Canvas, frame: BootSignalFrame) {
+        val p = exitProgress.coerceIn(0f, 1f)
+        val w = width.toFloat(); val h = height.toFloat()
+        val beat = (p * 36).toInt()
+        for (i in 0 until 16) {
+            val t = ((p - .36f - (i % 4) * .026f) / .42f).coerceIn(0f, 1f)
+            if (t >= 1f) continue
+            val noise = (((i * 73 + beat * 37) xor (beat * (i + 11))) % 97 - 48) / 48f
+            val jitter = noise * dp(if (p < .14f) 3f else 28f) * (1 - t)
+            val direction = if (i % 2 == 0) -1 else 1
+            val x = direction * t * t * w * 1.08f + jitter
+            val top = h * i / 16; val bottom = h * (i + 1) / 16
+            val gap = if (p > .14f) dp(1.5f) * (1 - t) else 0f
+            canvas.save()
+            canvas.clipRect(0f, top + gap, w, bottom - gap)
+            canvas.translate(x, 0f); frame.draw(canvas, width, height)
+            canvas.restore()
+            if (p > .14f && p < .65f && i % 3 == beat % 3) {
+                paint.color = 0xffaaaaaa.toInt(); paint.style = Paint.Style.FILL
+                val start = w * (.2f + abs(noise) * .4f)
+                canvas.drawRect(start, top, start + w * .16f * (1 - t), top + dp(1f), paint)
+            }
+        }
+        if (p < .34f) {
+            paint.style = Paint.Style.FILL; paint.color = 0xf0000000.toInt()
+            val left = w / 2 - dp(124f); val top = h * .72f - dp(28f)
+            canvas.drawRect(left, top, w / 2 + dp(124f), top + dp(48f), paint)
+            paint.textAlign = Paint.Align.CENTER; paint.typeface = Typeface.MONOSPACE
+            paint.textSize = dp(18f); paint.color = Color.WHITE
+            canvas.drawText("[ ACCESS GRANTED ]", w / 2, top + dp(31f), paint)
+        }
+    }
+
+    private fun drawScene(canvas: Canvas) {
         val now = SystemClock.uptimeMillis()
         val motion = !reducedMotion
         val dt = min(0.05f, (now - lastFrame) / 1000f); lastFrame = now
         canvas.drawColor(Color.BLACK)
         paint.style = Paint.Style.FILL; paint.textAlign = Paint.Align.CENTER
         for (column in columns) {
-            if (motion) column.y += column.speed * dt
+            if (motion && running) column.y += column.speed * dt
             if (column.y - column.bits.size * column.size > height) column.y = -Random.nextFloat() * dp(180f)
-            if (motion && Random.nextInt(5) == 0) column.bits[Random.nextInt(column.bits.size)] = if (Random.nextBoolean()) '0' else '1'
+            if (motion && running && Random.nextInt(5) == 0) column.bits[Random.nextInt(column.bits.size)] = if (Random.nextBoolean()) '0' else '1'
             paint.textSize = column.size
             for (index in column.bits.indices) {
                 val y = column.y - index * column.size

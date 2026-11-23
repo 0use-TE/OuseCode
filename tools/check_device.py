@@ -13,12 +13,12 @@ def adb(*args):
     return subprocess.run(["adb", *device, *args], check=True, capture_output=True, text=True).stdout
 
 root = Path(__file__).resolve().parents[1]
-apk = root / "dist/OpenCode-0.2.5-arm64.apk"
+apk = root / "dist/OpenCode-0.2.9-arm64.apk"
 local = hashlib.sha256(apk.read_bytes()).hexdigest()
-remote = adb("shell", "sha256sum", "/sdcard/Download/OpenCode-0.2.5-arm64.apk").split()[0]
+remote = adb("shell", "sha256sum", "/sdcard/Download/OpenCode-0.2.9-arm64.apk").split()[0]
 assert local == remote, "Tablet download differs from the release artifact"
 package = adb("shell", "dumpsys", "package", "io.github.ouse.ousecode")
-assert "versionName=0.2.5" in package
+assert "versionName=0.2.9" in package
 adb("shell", "uiautomator", "dump", "/data/local/tmp/ousecode-window.xml")
 tree = ET.fromstring(adb("shell", "cat", "/data/local/tmp/ousecode-window.xml"))
 app_text = " ".join((node.get("text", "") + " " + node.get("content-desc", "")) for node in tree.iter("node") if node.get("package") == "io.github.ouse.ousecode")

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN" >
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenCode · OpenCode · 黑白转场</title>
+
+<link rel="stylesheet" href="./boot-transition-effects.css">
+</head>
+<body>
+<main>
+ <header class="masthead"><div><div class="eyebrow">OPENCODE / MOTION LAB</div><h1>八种黑白，八种运动语言。<span>OpenCode / Motion studies</span></h1></div><span class="local">本地预览 · 不修改 APK</span></header>
+ <nav class="choices" aria-label="八种黑白转场"></nav>
+ <div class="screen-wrap"><div class="stage" id="stage">
+  <div class="app" id="app">
+   <aside class="sidebar" data-layer><div class="brand"><i class="mark" id="destination"></i>OpenCode</div><div class="nav"><span class="glyph">⌂</span>主页</div><div class="nav"><span class="glyph">⌕</span>搜索会话</div><div class="nav"><span class="glyph">＋</span>新建会话</div><div class="section">最近</div><div class="session selected">新的想法<small>workspace · 刚刚</small></div><div class="session">构建一个小工具<small>workspace · 昨天</small></div><div class="session">探索项目<small>workspace · 昨天</small></div><div class="side-footer">⚙ &nbsp; 设置</div></aside>
+   <section class="workspace"><div class="toolbar" data-layer><div class="crumb">▣ <span>workspace</span><span style="color:#444">/</span><span style="color:#d3d3d3">新会话</span></div><span class="tools">⌘ ◫</span></div><div class="welcome" data-layer><i class="mark"></i><h2>从一个想法开始。</h2><p>你的工作区已就绪。</p><div class="suggestions"><span>探索这个项目 ↗</span><span>帮我实现一个想法 ↗</span><span>从头开始 ↗</span></div></div><div class="composer" data-layer><div>随便问点什么，/ 可查看命令，@ 可添加上下文…</div><div class="composer-footer"><span><b>Build⌄</b> &nbsp; OpenAI / GPT &nbsp;⌄</span><span class="send">↑</span></div></div><div class="app-foot" data-layer><span>Ubuntu · ~/workspace</span><span><i>●</i> &nbsp; 已连接</span></div></section>
+  </div>
+  <div class="boot" id="boot"><canvas id="rain"></canvas></div>
+ </div></div>
+ <div class="timeline"><div id="timelineFill"></div></div>
+ <div class="controls"><button class="primary" id="play">▶ &nbsp; 播放过渡</button><button class="secondary" id="start">启动页</button><button class="secondary" id="end">完成页</button><label class="speed">动画时长 <input id="duration" type="range" min="500" max="2600" step="50" value="1400"><output id="durationLabel">1400ms</output></label><label class="loop"><input type="checkbox" id="loop">循环播放</label></div>
+ <section class="caption"><div><strong id="effectTitle">01 / 字标穿行 — TYPE PORTAL</strong><p id="effectDescription">极简字标成为通往工作区的窗口。视线穿过不断放大的字形，进入主界面。</p></div><span class="status" id="status">READY TO PREVIEW</span></section>
+ <footer class="bottom"><span>界面为模拟工作区，无真实会话或账号内容。</span><span><kbd>Space</kbd>重播 &nbsp; <kbd>1–8</kbd>切换方案</span></footer>
+</main>
+<script src="./boot-transition.js"></script>
+</body>
+</html>

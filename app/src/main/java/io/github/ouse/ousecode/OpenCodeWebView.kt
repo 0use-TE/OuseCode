@@ -17,6 +17,11 @@ import android.webkit.WebView
  * pans through the touchscreen channel. Normalize those explicit classifications
  * before Chromium handles them; normal touch, mouse and stylus input pass through. */
 class OpenCodeWebView(context: Context) : WebView(context) {
+    init {
+        settings.setSupportZoom(false)
+        settings.builtInZoomControls = false
+        settings.displayZoomControls = false
+    }
     private val configuration = ViewConfiguration.get(context)
     // A classified DOWN starts a pan; UP/CANCEL, focus loss, detaching, or a new
     // unrelated DOWN clears it so an interrupted pan cannot capture the next tap.

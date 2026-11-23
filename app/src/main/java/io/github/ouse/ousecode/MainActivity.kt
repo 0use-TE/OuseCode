@@ -57,7 +57,7 @@ class MainActivity : Activity() {
     private lateinit var edge: FloatingSettings
     private var temporaryTerminal: TemporaryTerminal? = null
     private var androidTerminal: TemporaryTerminal? = null
-    private enum class SettingsPage { HOME, TERMINAL, ANDROID, RUNTIME, ABOUT }
+    private enum class SettingsPage { HOME, TERMINAL, ANDROID, RUNTIME, ANIMATION, ABOUT }
     private var settingsPage = SettingsPage.HOME
     private var androidApproval: Pair<AndroidApproval, Dialog>? = null
     private var resumed = false
@@ -113,7 +113,7 @@ class MainActivity : Activity() {
                 content.viewTreeObserver.removeOnPreDrawListener(this)
                 content.post {
                     if (!isDestroyed) {
-                        web = OpenCodeWebView(this@MainActivity).apply { alpha = 0f }
+                        web = OpenCodeWebView(this@MainActivity)
                         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
                         configureWeb()
                         content.addView(web, 0, FrameLayout.LayoutParams(-1, -1))
@@ -132,6 +132,7 @@ class MainActivity : Activity() {
         web.settings.apply {
             javaScriptEnabled = true; domStorageEnabled = true; databaseEnabled = true
             allowFileAccess = false; allowContentAccess = true
+            offscreenPreRaster = true
             setSupportMultipleWindows(true); javaScriptCanOpenWindowsAutomatically = false
             mediaPlaybackRequiresUserGesture = true
         }
@@ -276,8 +277,8 @@ class MainActivity : Activity() {
     private fun updateBoot(state: RuntimeStatus) {
         if (!::splash.isInitialized) return
         if (state.phase != Phase.READY) {
-            splash.animate().cancel(); splash.alpha = 1f; splash.scaleX = 1f; splash.scaleY = 1f; splash.visibility = View.VISIBLE
-            if (::web.isInitialized) { web.animate().cancel(); web.alpha = 0f; web.scaleX = 1f; web.scaleY = 1f }
+            splash.cancelExit(); splash.alpha = 1f; splash.translationY = 0f; splash.visibility = View.VISIBLE
+            if (::web.isInitialized) web.alpha = 1f
             if (splashFinished) { splash.resetBoot(); splash.resumeAnimation() }
             splashFinished = false
         }
@@ -292,17 +293,12 @@ class MainActivity : Activity() {
         splashFinished = true
         startup.visibility = View.GONE
         splash.finishBoot()
-        // A fixed transition joins the completed native boot screen to the rendered web frame.
-        web.alpha = 0f; web.scaleX = 0.985f; web.scaleY = 0.985f
-        web.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(0).setDuration(700)
-            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
-        splash.animate().alpha(0f).scaleX(1.04f).scaleY(1.04f).setStartDelay(0).setDuration(700)
-            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator()).withEndAction {
+        splash.playExit {
             if (!isDestroyed && manager.status.phase == Phase.READY && splashFinished) {
                 splash.visibility = View.GONE
                 splash.pauseAnimation()
             }
-        }.start()
+        }
     }
 
     private fun showSettings() {
@@ -371,6 +367,7 @@ class MainActivity : Activity() {
             SettingsPage.TERMINAL -> t("终端", "Terminal")
             SettingsPage.ANDROID -> t("Android 访问", "Android access")
             SettingsPage.RUNTIME -> t("运行环境", "Runtime environment")
+            SettingsPage.ANIMATION -> t("启动动画", "Startup animation")
             SettingsPage.ABOUT -> t("关于", "About")
         }
         panel.addView(label(if (page == SettingsPage.HOME) heading else "‹  $heading", 19f, panelText).apply {
@@ -393,6 +390,7 @@ class MainActivity : Activity() {
                 row(t("终端  ›", "Terminal  ›")) { openSettingsPanel(SettingsPage.TERMINAL) }
                 row(t("Android 访问  ›", "Android access  ›")) { openSettingsPanel(SettingsPage.ANDROID) }
                 row(t("运行环境  ›", "Runtime environment  ›")) { openSettingsPanel(SettingsPage.RUNTIME) }
+                row(t("启动动画  ›", "Startup animation  ›")) { openSettingsPanel(SettingsPage.ANIMATION) }
                 row(t("关于  ›", "About  ›")) { openSettingsPanel(SettingsPage.ABOUT) }
             }
             SettingsPage.TERMINAL -> {
@@ -441,8 +439,18 @@ class MainActivity : Activity() {
                     confirm(t("停止运行环境", "Stop environment"), t("将停止 OpenCode 和当前任务。", "OpenCode and its active tasks will stop.")) { RuntimeService.send(this, "stop") }
                 }
             }
+            SettingsPage.ANIMATION -> {
+                panel.addView(label(t("数字雨 · 信号撕裂", "Digital rain · Signal breach"), 15f, panelText).apply {
+                    setPadding(dp(12), 0, dp(12), 0)
+                }, LinearLayout.LayoutParams(-1, dp(46)))
+                row(t("预览动画", "Preview animation"), ready) {
+                    splash.resetBoot(); splash.setBootProgress(100, t("本机工作区已就绪", "Local workspace ready"))
+                    splash.visibility = View.VISIBLE; splash.resumeAnimation(); splashFinished = false
+                    splash.postDelayed({ if (!isDestroyed && !splashFinished && manager.status.phase == Phase.READY) finishBoot() }, 500)
+                }
+            }
             SettingsPage.ABOUT -> {
-                panel.addView(label("OpenCode Android 0.2.4", 15f, panelText).apply { setPadding(dp(12), 0, dp(12), 0) }, LinearLayout.LayoutParams(-1, dp(40)))
+                panel.addView(label("OpenCode Android ${packageManager.getPackageInfo(packageName, 0).versionName}", 15f, panelText).apply { setPadding(dp(12), 0, dp(12), 0) }, LinearLayout.LayoutParams(-1, dp(40)))
                 row(t("开源许可", "Open-source licenses")) { showMessage(t("开源许可", "Open-source licenses"), assets.open("NOTICE.txt").bufferedReader().use { it.readText() }) }
             }
         }
@@ -669,7 +677,7 @@ class MainActivity : Activity() {
         settingsDialog?.dismiss()
         manager.unobserve(observer); chooser?.onReceiveValue(null); chooser = null
         if (::web.isInitialized) { web.animate().cancel(); (web.parent as? ViewGroup)?.removeView(web); web.destroy() }
-        if (::splash.isInitialized) { splash.animate().cancel(); splash.pauseAnimation(); (splash.parent as? ViewGroup)?.removeView(splash) }
+        if (::splash.isInitialized) { splash.cancelExit(); splash.pauseAnimation(); (splash.parent as? ViewGroup)?.removeView(splash) }
         super.onDestroy()
     }
 }

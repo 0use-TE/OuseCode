@@ -92,7 +92,33 @@ class InputChecks(private val instrumentation: Instrumentation, private val acti
         try {
             await("Input test page did not load") { evaluate("window.inputReady") == "true" }
             await("Host input compatibility did not load") { evaluate("window.__openCodeHostInput") == "true" }
+            main { check(!web.settings.supportZoom() && !web.settings.builtInZoomControls && !web.settings.displayZoomControls) }
+            check(evaluate("(()=>{const e=new WheelEvent('wheel',{ctrlKey:true,cancelable:true,bubbles:true});document.body.dispatchEvent(e);return e.defaultPrevented})()") == "true") { "Trackpad pinch Ctrl+wheel was not cancelled" }
+            check(evaluate("(()=>{const e=new WheelEvent('wheel',{cancelable:true,bubbles:true});document.body.dispatchEvent(e);return e.defaultPrevented})()") == "false") { "Ordinary wheel scrolling was blocked" }
             val scale = web.width.toFloat() / evaluate("innerWidth").toFloat()
+            val viewportScale = evaluate("visualViewport.scale").toFloat()
+            val pinchStart = SystemClock.uptimeMillis()
+            for (step in 0..12) {
+                main {
+                    val count = if (step == 0 || step == 12) 1 else 2
+                    val action = when (step) {
+                        0 -> MotionEvent.ACTION_DOWN
+                        1 -> MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+                        11 -> MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT)
+                        12 -> MotionEvent.ACTION_UP
+                        else -> MotionEvent.ACTION_MOVE
+                    }
+                    val spread = 40f + step.coerceAtMost(10) * 8f
+                    val pointers = Array(count) { index -> MotionEvent.PointerProperties().apply { id = index; toolType = MotionEvent.TOOL_TYPE_FINGER } }
+                    val coordinates = Array(count) { index -> MotionEvent.PointerCoords().apply { x = (190f + if (index == 0) -spread else spread) * scale; y = 180 * scale; pressure = 1f } }
+                    val pinch = MotionEvent.obtain(pinchStart, SystemClock.uptimeMillis(), action, count, pointers, coordinates, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
+                    try { web.dispatchTouchEvent(pinch) } finally { pinch.recycle() }
+                }
+                Thread.sleep(25)
+            }
+            Thread.sleep(150)
+            check(kotlin.math.abs(evaluate("visualViewport.scale").toFloat() - viewportScale) < 0.01f) { "Native touch pinch changed the web viewport scale" }
+            evaluate("inputResults.touch=0;true")
             if (Build.VERSION.SDK_INT >= 34) {
                 pan(100 * scale, 250 * scale, MotionEvent.CLASSIFICATION_TWO_FINGER_SWIPE)
                 await("Two-finger input did not scroll the list") { evaluate("list.scrollTop").toFloat() > 30 }
@@ -166,7 +192,26 @@ class InputChecks(private val instrumentation: Instrumentation, private val acti
             }
             check(connection.finishComposingText())
             main { activity.getSystemService(android.view.inputmethod.InputMethodManager::class.java).hideSoftInputFromWindow(web.windowToken, 0) }
+
+            // The touch menu disappears on pointerup, before Android synthesizes
+            // its click. That click must not dismiss the replacement dialog.
+            evaluate("""
+                (()=>{
+                  const menu=document.createElement('button');menu.id='deleteFixture';document.body.appendChild(menu);
+                  const overlay=document.createElement('div');overlay.dataset.component='dialog-overlay';
+                  overlay.addEventListener('click',()=>overlay.remove());
+                  menu.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',buttons:1}));
+                  menu.remove();document.body.appendChild(overlay);
+                  overlay.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}));
+                  window.fixtureOverlay=overlay;
+                  return true;
+                })()
+            """.trimIndent())
+            check(evaluate("fixtureOverlay.isConnected") == "true") { "Touch compatibility click dismissed the confirmation" }
+            evaluate("fixtureOverlay.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',buttons:1}));fixtureOverlay.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,detail:1}));true")
+            check(evaluate("fixtureOverlay.isConnected") == "false") { "Real backdrop click no longer dismisses dialogs" }
             instrumentation.sendStatus(0, Bundle().apply { putString("stream", "PASS: two-finger scrolling, cursor restoration, continuous touch resize, lost-release/blur cleanup and classic/modern Chinese input connections\n") })
+            instrumentation.sendStatus(0, Bundle().apply { putString("stream", "PASS: fixed web zoom, pinch wheel cancellation, ordinary wheel preservation and touch menu-to-dialog click-through protection\n") })
         } finally {
             main { parent.removeView(web); web.destroy() }
         }

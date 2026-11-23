@@ -10,7 +10,7 @@ The first launch extracts the environment; later launches reuse it. Model reques
 
 ## Usage
 
-1. Install `dist/OpenCode-0.2.5-arm64.apk`, open OpenCode, and wait for initial extraction. The app automatically pairs with its bundled server using OpenCode's official one-time flow; no server address needs to be entered.
+1. Install `dist/OpenCode-0.2.6-arm64.apk`, open OpenCode, and wait for initial extraction. The app automatically pairs with its bundled server using OpenCode's official one-time flow; no server address needs to be entered.
 2. Select a project and configure a model in OpenCode. The default workspace is `/root/workspace`.
 3. OpenCode fills the app content area. Tap the edge handle to reveal settings, then tap again to open the panel. Drag the handle to either edge; its position is retained, and the button collapses after 3 idle seconds. Physical keyboards can use `Ctrl+Alt+O` for settings and `Ctrl+Shift+R` to reload.
 4. Settings has Terminal, Android access, Runtime, and About pages. Terminal opens Ubuntu and edits its display name; Runtime provides reload, restart, OpenCode update, logs, and stop. The display name changes only the Bash prompt (default `ouse@OpenCode`), keeping root and `/root` unchanged. New terminals pick it up automatically; run `source ~/.bashrc` in an existing terminal. Names accept 1–40 letters, numbers, spaces, and `_ . @ -`. Existing prompt configuration lines are preserved; `.bashrc` sources the separate `.ousecode/prompt.bash` file.
@@ -20,9 +20,11 @@ The host converts classified two-finger trackpad pans to wheel input for convers
 
 The host sets `touch-action: none` on OpenCode dividers so browser panning cannot cancel touch resizing. Release, window focus loss, and mouse movement with no buttons pressed clear the observed resize and pointer capture. Starting composition with a physical keyboard requests that the IME restore its candidate UI; the IME controls the final presentation.
 
+Web gesture zoom is disabled, including touchscreen pinches and trackpad Ctrl+wheel pinch events; ordinary two-finger scrolling remains available. Compatibility clicks are prevented from passing through a touch menu into a replacement dialog's backdrop. Genuine backdrop clicks still dismiss the dialog.
+
 `Ctrl+Alt+T` toggles the temporary Ubuntu terminal from the OpenCode webpage or the terminal itself. Settings also opens it. This is interactive Bash inside PRoot, starting in `/root/workspace` and sharing project files with OpenCode, rather than an Android shell. It supports physical keyboards, IME, Tab completion, arrow-key history, Ctrl+C, and long-press copy/paste (`Ctrl+Shift+V` to paste). Hiding retains the working directory and jobs; × or `exit` ends the session. Restarting/stopping the environment ends it too. OpenCode's own shortcuts, including Ctrl+backtick, remain unchanged. Termux terminal components are bundled in the APK; no Termux app installation is needed.
 
-The black-and-white rain and title decoding are drawn natively with Kotlin Canvas; startup does not load an animation webpage. Extraction shows real stage progress, while stages without a measurable percentage use an indeterminate bar. Once the first web frame is ready, a fixed 700 ms transition fades out the boot screen and fades in the page with subtle scaling. Android's animation duration scale still applies. The rain pauses when hidden or in the background. No first-run name dialog interrupts entry; change the default anytime in settings.
+The black-and-white rain and title decoding are drawn natively with Kotlin Canvas; startup does not load an animation webpage. Extraction shows real stage progress, while stages without a measurable percentage use an indeterminate bar. The webpage draws at its normal scale and full opacity behind the boot layer throughout the transition. The Matrix digital rain startup ends with ACCESS GRANTED followed by horizontal signal strips tearing apart to expose the workspace. Settings → Startup animation offers a preview. Android 10+ reuses a GPU display list for an approximately 0.95-second reveal without full-screen bitmaps; long frames cannot consume the entire transition. Android 8/9 use a native fade. Disabled system animations skip the reveal. The rain and tear pause when hidden or in the background. No first-run name dialog interrupts entry; change the default anytime in settings.
 
 ## Android access
 
@@ -104,6 +106,12 @@ Version 0.2.3 passed the basic, settings UI, Ubuntu terminal, and Android access
 Subscription sign-in, third-party plugins, and extended background operation require separate device verification and are not established by the smoke checks.
 
 Version 0.2.5 passed real-device checks for returning to the same page, two-finger scrolling, cursor restoration, continuous touch resizing, missing-release/window-blur cleanup, and Chinese composition/commit through classic and modern input connections. Builds and asset hashes passed, with no lint errors. Actual candidate-window presentation and trackpad feel remain for user verification; simulated composition does not validate Gboard's candidate UI.
+
+Version 0.2.6 passed real-device checks for an unchanged viewport during native touch pinching, trackpad pinch cancellation with ordinary wheel scrolling preserved, dialog click-through protection, and genuine backdrop dismissal. Deleting a temporary session through its confirmation dialog returned 404 on the subsequent API lookup. The native-only reveal check finished in approximately 725 ms, keeping the webpage at full opacity and normal scale and releasing its hardware layer afterward; this is not a cold-start frame-rate measurement.
+
+0.2.8 replayed the handoff three times on the Lenovo ARM64 device: synchronous kickoff took under 1 ms and worst frames were about 14.5, 15.5, and 11.2 ms. No frames exceeded 32 ms; cancellation, unchanged WebView transforms, and hardware-layer release checks passed. These measure the reveal after page readiness, not the full cold-start frame rate.
+
+0.2.9 device checks observed ten sampled signal-tear stages during actual startup. Four hardware-rendered screenshots verified displacement, separation, and a transparent final frame; a solid backdrop concealed user content. Three replays had worst frames of about 12.4, 11.2, and 12.6 ms, with none over 32 ms. Cancellation, GPU-cache release, and simulated long-frame timing checks passed.
 
 ## License and attribution
 

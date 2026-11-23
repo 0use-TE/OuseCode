@@ -9,5 +9,5 @@ bash ./gradlew --no-daemon assembleRelease assembleDebug assembleDebugAndroidTes
 python3 tools/verify_apk.py app/build/outputs/apk/release/app-release.apk
 python3 tools/verify_apk.py app/build/outputs/apk/debug/app-debug.apk
 mkdir -p dist
-cp app/build/outputs/apk/release/app-release.apk dist/OpenCode-0.2.5-arm64.apk
-sha256sum dist/OpenCode-0.2.5-arm64.apk
+cp app/build/outputs/apk/release/app-release.apk dist/OpenCode-0.2.9-arm64.apk
+sha256sum dist/OpenCode-0.2.9-arm64.apk
